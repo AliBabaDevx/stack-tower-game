@@ -311,7 +311,17 @@
   function loadAllProfiles(){ try{ return JSON.parse(localStorage.getItem(PROFILES_KEY) || '{}'); }catch(e){ return {}; } }
   function saveAllProfiles(all){ try{ localStorage.setItem(PROFILES_KEY, JSON.stringify(all)); }catch(e){} }
 
-  function defaultProfile(){ return { highScore:0, coins:0, unlocked:['classic'], skin:'classic', difficulty:'normal' }; }
+  function defaultProfile(){ return { highScores:{easy:0,normal:0,hard:0}, coins:0, unlocked:['classic'], skin:'classic', difficulty:'normal' }; }
+  function normalizeProfile(p){
+    if(!p.highScores){
+      const legacy = p.highScore || 0;
+      p.highScores = { easy:0, normal:legacy, hard:0 };
+    }
+    ['easy','normal','hard'].forEach(k=>{ if(typeof p.highScores[k] !== 'number') p.highScores[k] = 0; });
+    delete p.highScore;
+    return p;
+  }
+  function bestOverall(){ return Math.max(profile.highScores.easy, profile.highScores.normal, profile.highScores.hard); }
 
   function nextGuestName(){
     let n = parseInt(localStorage.getItem(GUEST_COUNTER_KEY) || '0', 10) + 1;
@@ -329,12 +339,12 @@
   }
 
   let identity = getGuestIdentity(); // { kind:'guest'|'firebase', id, label }
-  let profile = Object.assign(defaultProfile(), loadAllProfiles()[identity.id] || {});
+  let profile = normalizeProfile(Object.assign(defaultProfile(), loadAllProfiles()[identity.id] || {}));
 
   function setIdentity(next){
     identity = next;
     const all = loadAllProfiles();
-    profile = Object.assign(defaultProfile(), all[identity.id] || {});
+    profile = normalizeProfile(Object.assign(defaultProfile(), all[identity.id] || {}));
   }
   function saveProfile(){
     const all = loadAllProfiles();
@@ -413,7 +423,7 @@
     SKINS.forEach(skin=>{
       if(isUnlocked(skin)) return;
       const u = skin.unlock;
-      if(u.type==='score' && profile.highScore >= u.value){ profile.unlocked.push(skin.id); newly.push(skin.name); }
+      if(u.type==='score' && bestOverall() >= u.value){ profile.unlocked.push(skin.id); newly.push(skin.name); }
       else if(u.type==='coins' && profile.coins >= u.value){ profile.unlocked.push(skin.id); newly.push(skin.name); }
     });
     return newly;
@@ -501,7 +511,7 @@
       stats.className = 'account-row';
       stats.innerHTML =
         '<div class="account-stats" style="justify-content:space-around;width:100%;">' +
-          '<div class="account-stat"><b>' + profile.highScore + '</b><span>BEST</span></div>' +
+          '<div class="account-stat"><b>' + bestOverall() + '</b><span>BEST</span></div>' +
           '<div class="account-stat"><b>' + profile.coins + '</b><span>COINS</span></div>' +
           '<div class="account-stat"><b>' + profile.unlocked.length + '/' + SKINS.length + '</b><span>SKINS</span></div>' +
         '</div>';
@@ -636,6 +646,7 @@
         profile.difficulty = key;
         saveProfile();
         renderDifficultyRow();
+        renderTopbar();
       });
       row.appendChild(btn);
     });
@@ -644,15 +655,18 @@
 
   function renderTopbar(){
     document.getElementById('coinsDisplay').textContent = profile.coins;
-    document.getElementById('highScoreDisplay').textContent = profile.highScore;
+    document.getElementById('highScoreDisplay').textContent = profile.highScores[profile.difficulty] || 0;
     const btn = document.getElementById('accountBtn');
     if(identity.kind === 'firebase'){ btn.textContent = identity.label.charAt(0).toUpperCase(); btn.classList.add('logged-in'); }
     else { btn.textContent = '🧑'; btn.classList.remove('logged-in'); }
   }
   renderTopbar();
 
+  function isMobile(){ return window.innerWidth <= 700; }
+
   // ---------- Game constants ----------
-  const BLOCK_H = 34;
+  let BLOCK_H = isMobile() ? 27 : 34;
+  window.addEventListener('resize', ()=>{ BLOCK_H = isMobile() ? 27 : 34; });
   const MIN_WIDTH_GAMEOVER = 4;
 
   // ---------- State ----------
@@ -689,7 +703,7 @@
   generateStars();
 
   function resetGame(){
-    const startWidth = Math.min(W * 0.55, 260);
+    const startWidth = isMobile() ? Math.min(W * 0.42, 190) : Math.min(W * 0.55, 260);
     blocks = [{ x: W/2 - startWidth/2, width: startWidth, color: colorForLayer(0), layer: 0 }];
     debris = [];
     particles = [];
@@ -717,7 +731,7 @@
   }
 
   function layerScreenY(layer){
-    return H - (layer+1)*BLOCK_H - camY;
+    return H - (layer+1)*BLOCK_H + camY;
   }
 
   function updateScoreUI(){
@@ -800,7 +814,8 @@
 
     const visibleLayers = H / BLOCK_H;
     if(blocks.length > visibleLayers * 0.55){
-      camTargetY = (blocks.length - visibleLayers*0.55) * BLOCK_H;
+      const wanted = (blocks.length - visibleLayers*0.55) * BLOCK_H;
+      camTargetY = Math.max(camTargetY, wanted); // camera only ever climbs, never drops back
     }
 
     spawnMoving();
@@ -821,8 +836,10 @@
     sfxGameOver();
     shake = Math.min(shake + 8, 14);
 
-    const isNew = score > profile.highScore;
-    if(isNew) profile.highScore = score;
+    const d = profile.difficulty;
+    const prevBest = profile.highScores[d] || 0;
+    const isNew = score > prevBest;
+    if(isNew) profile.highScores[d] = score;
 
     const coinsEarned = Math.max(5, Math.floor(score/2));
     profile.coins += coinsEarned;
@@ -830,12 +847,12 @@
 
     setTimeout(sfxCoin, 200);
 
-    document.getElementById('highScoreDisplay').textContent = profile.highScore;
+    document.getElementById('highScoreDisplay').textContent = profile.highScores[d];
     document.getElementById('coinsDisplay').textContent = profile.coins;
     document.getElementById('finalScore').textContent = score;
     document.getElementById('coinsEarnedLabel').textContent = '+' + coinsEarned + ' 🪙';
     const bestLabel = document.getElementById('bestLabel');
-    bestLabel.textContent = isNew ? 'NEW BEST!' : ('Best: ' + profile.highScore);
+    bestLabel.textContent = isNew ? 'NEW BEST!' : ('Best (' + DIFFICULTIES[d].label + '): ' + profile.highScores[d]);
     bestLabel.classList.toggle('newbest', isNew);
 
     const newly = checkNewUnlocks();
