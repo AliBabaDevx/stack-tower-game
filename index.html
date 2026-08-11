@@ -10,11 +10,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <!-- Firebase (deferred to avoid blocking) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" defer></script>
 
-  <!-- Google AdSense -->
+  <!-- Google AdSense (async) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5193051496769844" crossorigin="anonymous"></script>
 
   <style>
@@ -49,6 +49,8 @@
       background: #0f0f1a;
       font-family: 'Nunito', -apple-system, sans-serif;
       touch-action: manipulation;
+      display: block !important;
+      visibility: visible !important;
     }
 
     #game {
@@ -614,7 +616,7 @@
       background: rgba(255, 255, 255, 0.15);
     }
 
-    /* Ad Container */
+    /* Ad Container (Fixed at Bottom) */
     .ad-container {
       position: fixed;
       bottom: 0;
@@ -622,6 +624,16 @@
       right: 0;
       z-index: 10;
       pointer-events: none;
+      text-align: center;
+      padding: 10px 0;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .ad-container ins {
+      display: block !important;
+      margin: 0 auto;
+      max-width: 100%;
+      min-height: 60px;
     }
   </style>
 </head>
@@ -657,6 +669,7 @@
     </div>
   </div>
 
+  <!-- AdSense Ad (Fixed at Bottom) -->
   <div class="ad-container">
     <ins class="adsbygoogle"
          style="display:block"
@@ -664,9 +677,7 @@
          data-ad-slot="2808560923"
          data-ad-format="auto"
          data-full-width-responsive="true"></ins>
-    <script>
-      (adsbygoogle = window.adsbygoogle || []).push({});
-    </script>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
   </div>
 
   <div id="gameOverOverlay" class="overlay hidden">
@@ -705,8 +716,8 @@
     </div>
   </div>
 
+  <!-- Firebase Config -->
   <script>
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBorOD0CY29eTBmS5Mc4zmws_pUDr2aYHM",
       authDomain: "stack-tower-baba.firebaseapp.com",
@@ -718,11 +729,12 @@
     firebase.initializeApp(firebaseConfig);
   </script>
 
-  <script>
+  <!-- Game Script (Deferred to avoid blocking) -->
+  <script defer>
     (function() {
       "use strict";
 
-      // Canvas setup
+      // ========== CANVAS SETUP ==========
       const canvas = document.getElementById('game');
       const ctx = canvas.getContext('2d');
       let W, H, DPR;
@@ -737,30 +749,18 @@
         ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       }
 
-      window.addEventListener('resize', () => {
-        resize();
-        generateStars();
-      });
-      window.addEventListener('orientationchange', () => {
-        resize();
-        generateStars();
-      });
+      window.addEventListener('resize', () => { resize(); generateStars(); });
+      window.addEventListener('orientationchange', () => { resize(); generateStars(); });
       resize();
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          resize();
-          generateStars();
-        }, 200);
-      });
+      window.addEventListener('load', () => { setTimeout(() => { resize(); generateStars(); }, 200); });
 
-      // Audio setup
+      // ========== AUDIO (SYNTH) ==========
       let actx = null, muted = false;
 
       function ensureAudio() {
         if (!actx) {
-          try {
-            actx = new (window.AudioContext || window.webkitAudioContext)();
-          } catch (e) {}
+          try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+          catch (e) {}
         }
       }
 
@@ -797,7 +797,7 @@
         muteBtn.textContent = muted ? '🔇' : '🔊';
       });
 
-      // Accounts / Profile
+      // ========== ACCOUNTS / PROFILE ==========
       const PROFILES_KEY = 'stackTowerProfiles';
       const GUEST_COUNTER_KEY = 'stackTowerGuestCounter';
       const GUEST_SESSION_KEY = 'stackTowerGuestSession';
@@ -881,7 +881,7 @@
         if (accountModal && !accountModal.classList.contains('hidden')) renderAccount();
       });
 
-      // Difficulty presets
+      // ========== DIFFICULTY PRESETS ==========
       const DIFFICULTIES = {
         easy:   { label: 'EASY',   baseSpeed: 1.5, stepEvery: 6, step: 0.14, maxSpeed: 4.5, perfectTol: 9 },
         normal: { label: 'NORMAL', baseSpeed: 1.9, stepEvery: 5, step: 0.18, maxSpeed: 6,   perfectTol: 6 },
@@ -889,7 +889,7 @@
       };
       function diff() { return DIFFICULTIES[profile.difficulty] || DIFFICULTIES.normal; }
 
-      // Skins / Shop
+      // ========== SKINS / SHOP ==========
       const SKINS = [
         { id: 'classic', name: 'Classic Rainbow', unlock: { type: 'free' }, gen: (layer) => `hsl(${(layer * 18) % 360},72%,58%)` },
         { id: 'neon', name: 'Neon Nights', unlock: { type: 'score', value: 20 }, gen: (layer) => `hsl(${(layer * 35) % 360},95%,62%)` },
@@ -977,7 +977,7 @@
       document.getElementById('shopBtnGO').addEventListener('click', openShop);
       shopModal.addEventListener('click', (e) => { if (e.target === shopModal) closeShop(); });
 
-      // Account Modal
+      // ========== ACCOUNT MODAL ==========
       const accountModal = document.getElementById('accountModal');
       const accountBody = document.getElementById('accountBody');
       let authTab = 'login';
@@ -1154,10 +1154,10 @@
       let BLOCK_H = isMobile() ? 27 : 34;
       window.addEventListener('resize', () => { BLOCK_H = isMobile() ? 27 : 34; });
 
-      // Game constants
+      // ========== GAME CONSTANTS ==========
       const MIN_WIDTH_GAMEOVER = 4;
 
-      // State
+      // ========== STATE ==========
       let state = 'start';
       let blocks = [];
       let moving = null;
@@ -1170,7 +1170,7 @@
       let shake = 0;
       let lastTime = 0;
 
-      // Starfield
+      // ========== STARFIELD ==========
       let backStars = [], frontStars = [];
       let starFieldH = 800;
       const BACK_PARALLAX = 0.55;
@@ -1368,7 +1368,7 @@
         requestAnimationFrame(() => startOverlay.classList.add('visible'));
       }
 
-      // Input
+      // ========== INPUT ==========
       document.getElementById('playBtn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
       document.getElementById('retryBtn').addEventListener('click', (e) => { e.stopPropagation(); retry(); });
       document.getElementById('homeBtnGO').addEventListener('click', (e) => { e.stopPropagation(); goHome(); });
@@ -1382,7 +1382,7 @@
         }
       });
 
-      // Render loop
+      // ========== RENDER LOOP ==========
       function drawBackground(t) {
         const g = ctx.createLinearGradient(0, 0, 0, H);
         g.addColorStop(0, '#05060f');
