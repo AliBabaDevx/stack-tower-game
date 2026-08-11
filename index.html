@@ -22,7 +22,7 @@
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; }
   html, body { width:100%; height:100%; overflow:hidden; background:#0f0f1a; font-family:'Nunito', -apple-system, sans-serif; touch-action: manipulation; }
-  #game { display:block; width:100%; height:100%; }
+  #game { display:block; position:fixed; inset:0; width:100%; height:100%; }
 
   .ui-layer { position:fixed; inset:0; pointer-events:none; z-index:5; }
 
@@ -253,14 +253,23 @@
   const ctx = canvas.getContext('2d');
   let W, H, DPR;
   function resize(){
+    // Read the canvas's ACTUAL on-screen box (CSS already sizes it to 100%/100%)
+    // instead of window.innerWidth/innerHeight, which can report a stale value
+    // on first paint on some mobile browsers and lock the canvas at the wrong size.
+    const rect = canvas.getBoundingClientRect();
+    W = Math.round(rect.width) || window.innerWidth;
+    H = Math.round(rect.height) || window.innerHeight;
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
   window.addEventListener('resize', ()=>{ resize(); generateStars(); });
+  window.addEventListener('orientationchange', ()=>{ resize(); generateStars(); });
   resize();
+  // Re-check shortly after load in case mobile browser chrome (address bar, etc.)
+  // was still settling when the first measurement happened.
+  window.addEventListener('load', ()=>{ setTimeout(()=>{ resize(); generateStars(); }, 200); });
 
   // ---------- Audio (synth, no files needed) ----------
   let actx = null, muted = false;
