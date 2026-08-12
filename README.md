@@ -32,7 +32,7 @@ You do not need to install any compilers or local servers to run this project.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com
+   git clone https://github.com/AliBabaDevx/stack-tower-game
    ```
 
 2. **Navigate into the directory:**
